@@ -1,0 +1,24 @@
+<h2>Dashboard</h2>
+
+<form method="POST">
+  <input type="text" name="task" placeholder="Enter Task" required>
+  <button type="submit">Add Task</button>
+</form>
+
+<h3>Tasks</h3>
+<ul>
+  {% for task in tasks %}
+    <li>
+      {{ task[2] }}
+      {% if task[3] == 0 %}
+        <a href="/done/{{ task[0] }}">✔ Done</a>
+      {% else %}
+        ✔ Completed
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>
+
+<h3>Efficiency Score: {{ score }}%</h3>
+
+<a href="/logout">Logout</a>
