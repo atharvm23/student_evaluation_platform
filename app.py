@@ -4,16 +4,19 @@ import sqlite3
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-# Create Database
+# -------------------- DATABASE SETUP --------------------
 def init_db():
     conn = sqlite3.connect("database.db")
     c = conn.cursor()
 
+    # Users table (with role)
     c.execute('''CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT,
-                    password TEXT)''')
+                    password TEXT,
+                    role TEXT)''')
 
+    # Tasks table
     c.execute('''CREATE TABLE IF NOT EXISTS tasks (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER,
@@ -25,28 +28,33 @@ def init_db():
 
 init_db()
 
-# Home → Login
+# -------------------- HOME --------------------
 @app.route('/')
 def home():
     return render_template("login.html")
 
-# Register
+# -------------------- REGISTER --------------------
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == "POST":
         username = request.form['username']
         password = request.form['password']
+        role = request.form['role']   # NEW
 
         conn = sqlite3.connect("database.db")
         c = conn.cursor()
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+
+        c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+                  (username, password, role))
+
         conn.commit()
         conn.close()
 
         return redirect('/')
+
     return render_template("register.html")
 
-# Login
+# -------------------- LOGIN --------------------
 @app.route('/login', methods=['POST'])
 def login():
     username = request.form['username']
@@ -54,17 +62,26 @@ def login():
 
     conn = sqlite3.connect("database.db")
     c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
+
+    c.execute("SELECT * FROM users WHERE username=? AND password=?",
+              (username, password))
+
     user = c.fetchone()
     conn.close()
 
     if user:
         session['user_id'] = user[0]
-        return redirect('/dashboard')
+        session['role'] = user[3]   # NEW
+
+        # Role-based redirect
+        if user[3] == "guardian":
+            return redirect('/guardian')
+        else:
+            return redirect('/dashboard')
     else:
         return "Invalid Login"
 
-# Dashboard
+# -------------------- STUDENT DASHBOARD --------------------
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
     if 'user_id' not in session:
@@ -78,39 +95,75 @@ def dashboard():
     # Add Task
     if request.method == "POST":
         task = request.form['task']
-        c.execute("INSERT INTO tasks (user_id, task, status) VALUES (?, ?, 0)", (user_id, task))
+        c.execute("INSERT INTO tasks (user_id, task, status) VALUES (?, ?, 0)",
+                  (user_id, task))
         conn.commit()
 
     # Fetch Tasks
     c.execute("SELECT * FROM tasks WHERE user_id=?", (user_id,))
     tasks = c.fetchall()
 
-    # Calculate Score
-    total = len(tasks)
+    # Calculate Score (UPDATED for charts)
     completed = sum(1 for t in tasks if t[3] == 1)
+    total = len(tasks)
     score = (completed / total * 100) if total > 0 else 0
+
+    # Fetch username
+    c.execute("SELECT username FROM users WHERE id=?", (user_id,))
+    user = c.fetchone()
+    username = user[0] if user else "Unknown"
 
     conn.close()
 
-    return render_template("dashboard.html", tasks=tasks, score=score)
+    return render_template("dashboard.html",
+                           tasks=tasks,
+                           score=score,
+                           completed=completed,
+                           total=total,
+                           username=username)
 
-# Mark Done
+# -------------------- MARK TASK DONE --------------------
 @app.route('/done/<int:id>')
 def done(id):
     conn = sqlite3.connect("database.db")
     c = conn.cursor()
+
     c.execute("UPDATE tasks SET status=1 WHERE id=?", (id,))
+
     conn.commit()
     conn.close()
 
     return redirect('/dashboard')
 
-# Logout
+# -------------------- GUARDIAN DASHBOARD --------------------
+@app.route('/guardian')
+def guardian():
+    if 'role' not in session or session['role'] != "guardian":
+        return redirect('/')
+
+    conn = sqlite3.connect("database.db")
+    c = conn.cursor()
+
+    # View ALL student tasks
+    c.execute("SELECT * FROM tasks")
+    tasks = c.fetchall()
+
+    completed = sum(1 for t in tasks if t[3] == 1)
+    total = len(tasks)
+    score = (completed / total * 100) if total > 0 else 0
+
+    conn.close()
+
+    return render_template("guardian.html",
+                           tasks=tasks,
+                           score=score)
+
+# -------------------- LOGOUT --------------------
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/')
 
-# Run App
+# -------------------- RUN APP --------------------
 if __name__ == "__main__":
     app.run(debug=True)

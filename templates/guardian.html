@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Guardian Dashboard - SEP</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="bg-light">
+
+<div class="container mt-5">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>👨‍👩‍👧 Guardian Dashboard</h2>
+        <a href="/logout" class="btn btn-danger">Logout</a>
+    </div>
+
+    <!-- Task List -->
+    <div class="card p-3 mb-4 shadow-sm">
+        <h5>All Student Tasks</h5>
+
+        <ul class="list-group mt-3">
+            {% for task in tasks %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                
+                <span>{{ task[2] }}</span>
+
+                {% if task[3] == 1 %}
+                    <span class="badge bg-success">Completed</span>
+                {% else %}
+                    <span class="badge bg-danger">Pending</span>
+                {% endif %}
+
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Efficiency Score -->
+    <div class="card p-3 mb-4 shadow-sm text-center">
+        <h4>Overall Efficiency</h4>
+        <h2 class="text-primary">{{ score }}%</h2>
+    </div>
+
+    <!-- Chart -->
+    <div class="card p-3 shadow-sm">
+        <h5 class="text-center">Overall Performance</h5>
+        <canvas id="guardianChart"></canvas>
+    </div>
+
+</div>
+
+<script>
+    var ctx = document.getElementById('guardianChart').getContext('2d');
+
+    var chart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Completed', 'Pending'],
+            datasets: [{
+                data: [
+                    {{ tasks | selectattr('3', 'equalto', 1) | list | length }},
+                    {{ tasks | selectattr('3', 'equalto', 0) | list | length }}
+                ],
+            }]
+        }
+    });
+</script>
+
+</body>
+</html>
